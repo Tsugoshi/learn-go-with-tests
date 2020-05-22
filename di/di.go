@@ -10,7 +10,7 @@ func Greet(writer io.Writer, name string) {
 	fmt.Fprintf(writer, "Hello, %s", name)
 }
 
-func MyGreeterHandler(w http.ResponseWriter, r *http.Request) {
+func MyGreeterHandler(w http.ResponseWriter,git  r *http.Request) {
 	Greet(w, "word")
 }
 
