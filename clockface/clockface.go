@@ -8,19 +8,42 @@ import (
 )
 
 const secondHandLength = 90
+const minuteHandLength = 80
+const hourHandLength = 50
 const clockCenterX = 150
 const clockCenterY = 150
+
+const (
+	secondsInHalfClock = 30
+	secondsInClock     = 2 * secondsInHalfClock
+	minutesInHalfClock = 30
+	minutesInClock     = 2 * minutesInHalfClock
+	hoursInHalfClock   = 6
+	hoursInClock       = 2 * hoursInHalfClock
+)
 
 func SVGWriter(w io.Writer, t time.Time) {
 	io.WriteString(w, svgStart)
 	io.WriteString(w, bezel)
-	writeSecondHandSvg(w, t)
+	writeSecondHandSVG(w, t)
+	writeMinuteHandSVG(w, t)
+	writeHourHandSVG(w, t)
 	io.WriteString(w, svgEnd)
 }
 
-func writeSecondHandSvg(w io.Writer, t time.Time) {
-	p := SecondHand(t)
+func writeSecondHandSVG(w io.Writer, t time.Time) {
+	p := makeHand(SecondHandPoint(t), secondHandLength)
 	fmt.Fprintf(w, `<line x1="150" y1="150" x2="%.3f" y2="%.3f" style="fill:none;stroke:#f00;stroke-width:3px;"/>`, p.X, p.Y)
+}
+
+func writeMinuteHandSVG(w io.Writer, t time.Time) {
+	p := makeHand(MinuteHandPoint(t), minuteHandLength)
+	fmt.Fprintf(w, `<line x1="150" y1="150" x2="%.3f" y2="%.3f" style="fill:none;stroke:#000;stroke-width:3px;"/>`, p.X, p.Y)
+}
+
+func writeHourHandSVG(w io.Writer, t time.Time) {
+	p := makeHand(HourHandPoint(t), hourHandLength)
+	fmt.Fprintf(w, `<line x1="150" y1="150" x2="%.3f" y2="%.3f" style="fill:none;stroke:#000;stroke-width:3px;"/>`, p.X, p.Y)
 }
 
 const svgStart = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -40,28 +63,36 @@ type Point struct {
 	Y float64
 }
 
-func SecondHand(t time.Time) Point {
-	p := SecondHandPoint(t)
-	p = Point{p.X * secondHandLength, p.Y * secondHandLength} //scale to 90
-	p = Point{p.X, -p.Y}                                      //flip, becouse origin in top left
-	p = Point{p.X + clockCenterX, p.Y + clockCenterY}         //translate becouse origin in top left
-	return p
+func makeHand(p Point, length float64) Point {
+	p = Point{p.X * length, p.Y * length}
+	p = Point{p.X, -p.Y}
+	return Point{p.X + clockCenterX, p.Y + clockCenterY}
 }
 
 func SecondsInRadians(t time.Time) float64 {
-	return (math.Pi / (30 / (float64(t.Second()))))
+	return (math.Pi / (secondsInHalfClock / (float64(t.Second()))))
 }
 
 func SecondHandPoint(t time.Time) Point {
 	return angleToPoint(SecondsInRadians(t))
 }
+
 func MinutesInRadians(t time.Time) float64 {
-	return (SecondsInRadians(t) / 60) +
-		(math.Pi / (30 / float64(t.Minute())))
+	return (SecondsInRadians(t) / minutesInClock) +
+		(math.Pi / (minutesInHalfClock / float64(t.Minute())))
 }
 
 func MinuteHandPoint(t time.Time) Point {
 	return angleToPoint(MinutesInRadians(t))
+}
+
+func HoursInRadians(t time.Time) float64 {
+	return (MinutesInRadians(t) / hoursInClock) +
+		(math.Pi / (hoursInHalfClock / float64(t.Hour()%hoursInClock)))
+}
+
+func HourHandPoint(t time.Time) Point {
+	return angleToPoint(HoursInRadians(t))
 }
 
 func angleToPoint(angle float64) Point {

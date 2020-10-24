@@ -11,24 +11,6 @@ import (
 	. "github.com/tsugoshi/learn-go-with-tests/clockface"
 )
 
-func TestSVGWriterAtMidnight(t *testing.T) {
-	tm := time.Date(1234, time.January, 1, 0, 0, 0, 0, time.UTC)
-
-	b := bytes.Buffer{}
-	clockface.SVGWriter(&b, tm)
-	svg := SVG{}
-	xml.Unmarshal(b.Bytes(), &svg)
-
-	want := Line{150, 150, 150, 60}
-	for _, line := range svg.Line {
-		if line == want {
-			return
-		}
-	}
-
-	t.Errorf("Expected to find svg line %+v, in the SVG lines", want)
-}
-
 func TestSVGWriterSecondHand(t *testing.T) {
 	cases := []struct {
 		time time.Time
@@ -55,7 +37,7 @@ func TestSVGWriterSecondHand(t *testing.T) {
 	}
 }
 
-func TestSVGWriterMinutedHand(t *testing.T) {
+func TestSVGWriterMinuteHand(t *testing.T) {
 	cases := []struct {
 		time time.Time
 		line Line
@@ -73,7 +55,30 @@ func TestSVGWriterMinutedHand(t *testing.T) {
 		svg := SVG{}
 		xml.Unmarshal(b.Bytes(), &svg)
 		if !containsLine(c.line, svg.Line) {
-			t.Errorf("Expected to find second hand line %+v, in the SVG lines %+v.", c.line, svg.Line)
+			t.Errorf("Expected to find minute hand line %+v, in the SVG lines %+v.", c.line, svg.Line)
+		}
+	}
+}
+
+func TestSVGWriterHourHand(t *testing.T) {
+	cases := []struct {
+		time time.Time
+		line Line
+	}{
+		{
+			simpleTime(6, 0, 0),
+			Line{150, 150, 150, 200},
+		},
+	}
+
+	for _, c := range cases {
+		b := bytes.Buffer{}
+		clockface.SVGWriter(&b, c.time)
+
+		svg := SVG{}
+		xml.Unmarshal(b.Bytes(), &svg)
+		if !containsLine(c.line, svg.Line) {
+			t.Errorf("Expected to find hour hand line %+v, in the SVG lines %+v.", c.line, svg.Line)
 		}
 	}
 }
@@ -102,7 +107,7 @@ func TestSecondsInRadians(t *testing.T) {
 	for _, c := range cases {
 		t.Run(testName(c.time), func(t *testing.T) {
 			got := SecondsInRadians(c.time)
-			if got != c.angle {
+			if !roughlyEqualFloat64(got, c.angle) {
 				t.Fatalf("Wanted %v radians, got %v", c.angle, got)
 			}
 		})
@@ -141,7 +146,7 @@ func TestMinutesInRadians(t *testing.T) {
 	for _, c := range cases {
 		t.Run(testName(c.time), func(t *testing.T) {
 			got := MinutesInRadians(c.time)
-			if got != c.angle {
+			if !roughlyEqualFloat64(got, c.angle) {
 				t.Fatalf("Wanted %v radians, got %v", c.angle, got)
 			}
 		})
@@ -160,6 +165,47 @@ func TestMinuteHandPoint(t *testing.T) {
 	for _, c := range cases {
 		t.Run(testName(c.time), func(t *testing.T) {
 			got := MinuteHandPoint(c.time)
+			if !roughlyEqualPoint(got, c.point) {
+				t.Fatalf("Wanted %v Point, but got %v", c.point, got)
+			}
+		})
+	}
+}
+
+func TestHoursInRadians(t *testing.T) {
+
+	cases := []struct {
+		time  time.Time
+		angle float64
+	}{
+		{simpleTime(6, 0, 0), math.Pi},
+		{simpleTime(0, 0, 0), 0},
+		{simpleTime(21, 0, 0), math.Pi * 1.5},
+		{simpleTime(0, 1, 30), math.Pi / ((6 * 60 * 60) / 90)},
+	}
+
+	for _, c := range cases {
+		t.Run(testName(c.time), func(t *testing.T) {
+			got := HoursInRadians(c.time)
+			if !roughlyEqualFloat64(got, c.angle) {
+				t.Fatalf("Wanted %v radians, got %v", c.angle, got)
+			}
+		})
+	}
+}
+
+func TestHoursHandPoint(t *testing.T) {
+	cases := []struct {
+		time  time.Time
+		point Point
+	}{
+		{simpleTime(6, 0, 0), Point{0, -1}},
+		{simpleTime(21, 0, 0), Point{-1, 0}},
+	}
+
+	for _, c := range cases {
+		t.Run(testName(c.time), func(t *testing.T) {
+			got := HourHandPoint(c.time)
 			if !roughlyEqualPoint(got, c.point) {
 				t.Fatalf("Wanted %v Point, but got %v", c.point, got)
 			}
