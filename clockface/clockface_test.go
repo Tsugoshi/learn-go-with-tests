@@ -11,17 +11,6 @@ import (
 	. "github.com/tsugoshi/learn-go-with-tests/clockface"
 )
 
-func TestSecondHandAtMidnight(t *testing.T) {
-	tm := time.Date(1337, time.January, 1, 0, 0, 0, 0, time.UTC)
-
-	want := clockface.Point{X: 150, Y: 150 - 90}
-	got := clockface.SecondHand(tm)
-
-	if got != want {
-		t.Errorf("got %v, wanted %v", got, want)
-	}
-}
-
 func TestSVGWriterAtMidnight(t *testing.T) {
 	tm := time.Date(1234, time.January, 1, 0, 0, 0, 0, time.UTC)
 
@@ -30,26 +19,72 @@ func TestSVGWriterAtMidnight(t *testing.T) {
 	svg := SVG{}
 	xml.Unmarshal(b.Bytes(), &svg)
 
-	x2 := 150.000
-	y2 := 60.000
+	want := Line{150, 150, 150, 60}
 	for _, line := range svg.Line {
-		if line.X2 == x2 && line.Y2 == y2 {
+		if line == want {
 			return
 		}
 	}
 
-	t.Errorf("Expected to find svg line with x2=%+v and y2=%+v in the SVG output=%v", x2, y2, b.String())
+	t.Errorf("Expected to find svg line %+v, in the SVG lines", want)
 }
 
-func TestSecondHandAt30Seconds(t *testing.T) {
-	tm := time.Date(1337, time.January, 1, 0, 0, 30, 0, time.UTC)
-
-	want := clockface.Point{X: 150, Y: 150 + 90}
-	got := clockface.SecondHand(tm)
-
-	if got != want {
-		t.Errorf("Got %v, wanted %v", got, want)
+func TestSVGWriterSecondHand(t *testing.T) {
+	cases := []struct {
+		time time.Time
+		line Line
+	}{
+		{
+			simpleTime(0, 0, 0),
+			Line{150, 150, 150, 60},
+		}, {
+			simpleTime(0, 0, 30),
+			Line{150, 150, 150, 240},
+		},
 	}
+
+	for _, c := range cases {
+		b := bytes.Buffer{}
+		clockface.SVGWriter(&b, c.time)
+
+		svg := SVG{}
+		xml.Unmarshal(b.Bytes(), &svg)
+		if !containsLine(c.line, svg.Line) {
+			t.Errorf("Expected to find second hand line %+v, in the SVG lines %+v.", c.line, svg.Line)
+		}
+	}
+}
+
+func TestSVGWriterMinutedHand(t *testing.T) {
+	cases := []struct {
+		time time.Time
+		line Line
+	}{
+		{
+			simpleTime(0, 0, 0),
+			Line{150, 150, 150, 70},
+		},
+	}
+
+	for _, c := range cases {
+		b := bytes.Buffer{}
+		clockface.SVGWriter(&b, c.time)
+
+		svg := SVG{}
+		xml.Unmarshal(b.Bytes(), &svg)
+		if !containsLine(c.line, svg.Line) {
+			t.Errorf("Expected to find second hand line %+v, in the SVG lines %+v.", c.line, svg.Line)
+		}
+	}
+}
+
+func containsLine(want Line, got []Line) bool {
+	for _, line := range got {
+		if line == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestSecondsInRadians(t *testing.T) {
@@ -88,6 +123,45 @@ func TestSecondHandVector(t *testing.T) {
 			got := SecondHandPoint(c.time)
 			if !roughlyEqualPoint(c.point, got) {
 				t.Fatalf("Wanted %v Point, got %v", c.point, got)
+			}
+		})
+	}
+}
+
+func TestMinutesInRadians(t *testing.T) {
+
+	cases := []struct {
+		time  time.Time
+		angle float64
+	}{
+		{simpleTime(0, 30, 0), math.Pi},
+		{simpleTime(0, 0, 7), 7 * (math.Pi / (30 * 60))},
+	}
+
+	for _, c := range cases {
+		t.Run(testName(c.time), func(t *testing.T) {
+			got := MinutesInRadians(c.time)
+			if got != c.angle {
+				t.Fatalf("Wanted %v radians, got %v", c.angle, got)
+			}
+		})
+	}
+}
+
+func TestMinuteHandPoint(t *testing.T) {
+	cases := []struct {
+		time  time.Time
+		point Point
+	}{
+		{simpleTime(0, 30, 0), Point{0, -1}},
+		{simpleTime(0, 45, 0), Point{-1, 0}},
+	}
+
+	for _, c := range cases {
+		t.Run(testName(c.time), func(t *testing.T) {
+			got := MinuteHandPoint(c.time)
+			if !roughlyEqualPoint(got, c.point) {
+				t.Fatalf("Wanted %v Point, but got %v", c.point, got)
 			}
 		})
 	}
